@@ -1,4 +1,4 @@
-from core.abstract_algorithm import AbstractAlgorithm
+from scripts.core.abstract_algorithm import AbstractAlgorithm
 from stable_baselines3 import PPO, DQN, A2C
 
 class SB3Algorithm(AbstractAlgorithm):

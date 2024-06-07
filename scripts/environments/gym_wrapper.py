@@ -1,6 +1,7 @@
 import gym
 from core.abstract_environment import AbstractEnvironment
 
+
 class GymWrapper(AbstractEnvironment):
     def __init__(self, env_name):
         self.env = gym.make(env_name)

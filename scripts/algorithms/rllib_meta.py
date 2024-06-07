@@ -1,4 +1,4 @@
-from core.abstract_algorithm import AbstractAlgorithm
+from scripts.core.abstract_algorithm import AbstractAlgorithm
 import ray
 from ray.rllib.agents import ppo, dqn, a3c
 

@@ -1,8 +1,8 @@
 import yaml
-from environments.gym_wrapper.py import GymWrapper
-from environments.vmas_wrapper.py import VMASWrapper
-from algorithms.rllib_meta import RLLibPPOAlgorithm
-from algorithms.sb3_meta import SB3PPOAlgorithm
+from environments.gym_wrapper import GymWrapper
+from environments.vmas_wrapper import VMASWrapper
+from algorithms.rllib_meta import RLlibAlgorithm
+from algorithms.sb3_meta import SB3Algorithm
 
 
 def main(config_path):
@@ -24,15 +24,9 @@ def main(config_path):
     algo_config = config['algorithm'].get('hyperparameters', {})
 
     if algo_lib == 'rllib':
-        if algo_name == 'PPO':
-            algo = RLLibPPOAlgorithm(env, algo_config)
-        else:
-            raise ValueError(f"Unsupported RLlib algorithm: {algo_name}")
+        algo = RLlibAlgorithm(env, algo_name, algo_config)
     elif algo_lib == 'sb3':
-        if algo_name == 'PPO':
-            algo = SB3PPOAlgorithm(env, algo_config)
-        else:
-            raise ValueError(f"Unsupported SB3 algorithm: {algo_name}")
+        algo = SB3Algorithm(env, algo_name, algo_config)
     else:
         raise ValueError(f"Unsupported algorithm library: {algo_lib}")
 
@@ -45,4 +39,4 @@ def main(config_path):
 
 
 if __name__ == "__main__":
-    main('config/config_launcher.yaml.yaml')
+    main('config/config.yaml')
