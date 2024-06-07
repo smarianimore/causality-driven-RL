@@ -1,0 +1,12 @@
+- allows env setup
+
+- allows algo setup?
+
+- start vmas
+
+- gym env wrappers
+
+- vmas env wrappers
+
+
+- allows to use directly gym wrappers just implemented in the library

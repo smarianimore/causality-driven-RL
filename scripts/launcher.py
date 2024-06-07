@@ -3,6 +3,7 @@ from environments.gym_wrapper import GymWrapper
 from environments.vmas_wrapper import VMASWrapper
 from algorithms.rllib_meta import RLlibAlgorithm
 from algorithms.sb3_meta import SB3Algorithm
+from path_repo import GLOBAL_PATH_REPO
 
 
 def main(config_path):
@@ -11,32 +12,34 @@ def main(config_path):
 
     env_lib = config['environment']['library']
     env_name = config['environment']['name']
+    env_config = config['environment'].get('config', {})
 
     if env_lib == 'gym':
-        env = GymWrapper(env_name)
+        environment_definition = GymWrapper(env_name, env_config)
+        env = environment_definition.return_env()
     elif env_lib == 'vmas':
-        env = VMASWrapper(env_name)
+        environment_definition = VMASWrapper(env_name, env_config)
+        env = environment_definition.return_env()
     else:
         raise ValueError(f"Unsupported environment library: {env_lib}")
 
     algo_lib = config['algorithm']['library']
     algo_name = config['algorithm']['name']
     algo_config = config['algorithm'].get('hyperparameters', {})
+    seed = config.get('seed', 42)  # Default seed if not provided
 
     if algo_lib == 'rllib':
         algo = RLlibAlgorithm(env, algo_name, algo_config)
     elif algo_lib == 'sb3':
-        algo = SB3Algorithm(env, algo_name, algo_config)
+        algo = SB3Algorithm(env, algo_name, algo_config, seed)
     else:
         raise ValueError(f"Unsupported algorithm library: {algo_lib}")
 
-    # Example usage
-    algo.train(episodes=1000)
-    results = algo.evaluate(episodes=100)
-    algo.save('model_path')
-    algo.load('model_path')
+    algo.train()
+    results = algo.evaluate()
+    algo.save(f'{env_name}_{algo_name}')
     print(f"Evaluation Results: {results}")
 
 
 if __name__ == "__main__":
-    main('config/config.yaml')
+    main(f'{GLOBAL_PATH_REPO}/config/config_launcher.yaml')

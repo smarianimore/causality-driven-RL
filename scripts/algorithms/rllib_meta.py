@@ -1,44 +1,51 @@
 from scripts.core.abstract_algorithm import AbstractAlgorithm
 import ray
-from ray.rllib.agents import ppo, dqn, a3c
+from ray.rllib.algorithms import PPOConfig, DQNConfig
 
+# TODO
 class RLlibAlgorithm(AbstractAlgorithm):
     def __init__(self, env, algo_name, config):
         super().__init__(env)
         ray.init(ignore_reinit_error=True)
+
         self.algo_name = algo_name
-        self.config = self._get_default_config(algo_name)
-        self.config["env"] = env
-        self.config.update(config)
+        self.training_episodes = config.get('training_episodes', 1000)
+        self.evaluation_episodes = config.get('evaluation_episodes', 100)
+        self.env = self._validate_env(env)
         self.agent = self._initialize_agent(algo_name)
 
-    def _get_default_config(self, algo_name):
-        if algo_name == 'PPO':
-            return ppo.DEFAULT_CONFIG.copy()
-        elif algo_name == 'DQN':
-            return dqn.DEFAULT_CONFIG.copy()
-        elif algo_name == 'A3C':
-            return a3c.DEFAULT_CONFIG.copy()
-        else:
-            raise ValueError(f"Unsupported RLlib algorithm: {algo_name}")
 
     def _initialize_agent(self, algo_name):
         if algo_name == 'PPO':
-            return ppo.PPOTrainer(config=self.config, env=self.env)
+            config_algo = PPOConfig()
         elif algo_name == 'DQN':
-            return dqn.DQNTrainer(config=self.config, env=self.env)
-        elif algo_name == 'A3C':
-            return a3c.A3CTrainer(config=self.config, env=self.env)
+            config_algo = DQNConfig()
         else:
             raise ValueError(f"Unsupported RLlib algorithm: {algo_name}")
 
-    def train(self, episodes):
-        for _ in range(episodes):
+        algo = (config_algo
+                .env_runners(num_env_runners=1)
+                .resources(num_gpus=1)
+                .framework("torch")
+                .environment(env=self.env.env_name)
+                .build()
+                )
+
+        return algo
+
+    def _validate_env(self, env):
+        # Perform environment validation for RLlib
+        assert hasattr(env, 'reset'), "Environment must have a reset method"
+        assert hasattr(env, 'step'), "Environment must have a step method"
+        return env
+
+    def train(self):
+        for _ in range(self.training_episodes):
             self.agent.train()
 
-    def evaluate(self, episodes):
+    def evaluate(self):
         rewards = []
-        for _ in range(episodes):
+        for _ in range(self.evaluation_episodes):
             reward = self.agent.evaluate()
             rewards.append(reward)
         return rewards

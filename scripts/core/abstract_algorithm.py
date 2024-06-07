@@ -6,11 +6,11 @@ class AbstractAlgorithm(ABC):
         self.env = env
 
     @abstractmethod
-    def train(self, episodes):
+    def train(self):
         pass
 
     @abstractmethod
-    def evaluate(self, episodes):
+    def evaluate(self):
         pass
 
     @abstractmethod

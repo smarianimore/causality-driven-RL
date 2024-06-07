@@ -1,4 +1,6 @@
 gymnasium
-ray[rllib]~=2.20.0
+ray[rllib]
 stable-baselines3[extra]
 PyYAML
+chardet
+numpy

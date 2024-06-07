@@ -1,11 +1,15 @@
 # Placeholder for VMAS wrapper
 # Assume VMAS has a similar API to Gym for this example
-from core.abstract_environment import AbstractEnvironment
+from scripts.core.abstract_environment import AbstractEnvironment
 
+# TODO
 class VMASWrapper(AbstractEnvironment):
     def __init__(self, env_name):
         # Replace with actual VMAS environment creation
-        self.env = ...
+        self.env = None
+
+    def return_env(self):
+        return self.env
 
     def reset(self):
         return self.env.reset()
