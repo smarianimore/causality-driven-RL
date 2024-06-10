@@ -1,0 +1,24 @@
+environment:
+  library: gym
+  name: FrozenLake-v1
+  config_env: {}
+  logging: true
+  wrappers:
+    reward_wrapper:
+      wrapper: "scripts.environments.wrappers.FrozenLake_RewardWrapper"
+      kwargs: {}
+    observation_wrapper:
+      wrapper: "scripts.environments.wrappers.FrozenLake_ObservationSpaceWrapper"
+      kwargs:
+        observation_matrix_shape: [3, 3]
+        kind_of_obs: 'new'
+
+algorithm:
+  library: sb3
+  name: ppo
+  algo_config: {}
+
+simulations:
+  training_episodes: 1000
+  evaluation_episodes: 100
+  seed: 42

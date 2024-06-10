@@ -1,52 +1,40 @@
-import yaml
-from environments.gym_wrapper import GymWrapper
-from environments.vmas_wrapper import VMASWrapper
-from algorithms.rllib_meta import RLlibAlgorithm
-from algorithms.sb3_meta import SB3Algorithm
 from path_repo import GLOBAL_PATH_REPO
+from scripts.combo.env_gym_algo_sb3 import EnvGymAlgoSB3
+from scripts.combo.env_gym_algo_rllib import EnvGymAlgoRLlib
+from scripts.combo.env_vmas_algo_rllib import EnvVmasAlgoRLlib
+from scripts.utils import ConfiguratorParser
 
 
-def main(config_path):
-    with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+class RLFramework:
+    def __init__(self, config_file):
+        self.config_parser = ConfiguratorParser(config_file)
+        self.env_algo_instance = self.define_env_algo_instance()
+        self.sim_config = self.config_parser.get_simulation_config()
 
-    env_lib = config['environment']['library']
-    env_name = config['environment']['name']
-    env_config = config['environment'].get('config', {})
+    def define_env_algo_instance(self):
+        env_config = self.config_parser.get_environment_config()
+        algo_config = self.config_parser.get_algorithm_config()
+        env_library = env_config['library'].lower()
+        algo_library = algo_config['library'].lower()
 
-    if env_lib == 'gym':
-        environment_definition = GymWrapper(env_name, env_config)
-        env = environment_definition.return_env()
-    elif env_lib == 'vmas':
-        environment_definition = VMASWrapper(env_name, env_config)
-        env = environment_definition.return_env()
-    else:
-        raise ValueError(f"Unsupported environment library: {env_lib}")
+        if env_library == 'gym' and algo_library == 'sb3':
+            return EnvGymAlgoSB3(env_config, algo_config)
+        elif env_library == 'gym' and algo_library == 'rllib':
+            return EnvGymAlgoRLlib(env_config, algo_config)
+        elif env_library == 'vmas' and algo_library == 'rllib':
+            return EnvVmasAlgoRLlib(env_config, algo_config)
 
-    algo_lib = config['algorithm']['library']
-    algo_name = config['algorithm']['name']
-    algo_config = config['algorithm'].get('hyperparameters', {})
-    seed = config.get('seed', 42)  # Default seed if not provided
-
-    if algo_lib == 'rllib':
-        algo = RLlibAlgorithm(env, algo_name, algo_config)
-    elif algo_lib == 'sb3':
-        algo = SB3Algorithm(env, algo_name, algo_config, seed)
-    else:
-        raise ValueError(f"Unsupported algorithm library: {algo_lib}")
-
-    algo.train()
-    results = algo.evaluate()
-    algo.save(f'{env_name}_{algo_name}')
-
-    # Retrieve logs from the LoggingWrapper
-    if hasattr(env, 'get_logs'):
-        logs = env.get_logs()
-    else:
-        logs = env.unwrapped.get_logs()
-    print(f"Evaluation Results: {results}")
-    # print(f"Logs: {logs}")
+    def train_and_evaluate(self):
+        print("Training started...")
+        self.env_algo_instance.train(self.sim_config['training_episodes'], self.sim_config['seed'])
+        print("Training finished.")
+        print("Evaluation started...")
+        self.env_algo_instance.evaluate(self.sim_config['evaluation_episodes'], self.sim_config['seed'])
+        print("Evaluation finished.")
+        self.env_algo_instance.env.close()
 
 
 if __name__ == "__main__":
-    main(f'{GLOBAL_PATH_REPO}/config/config_launcher.yaml')
+    file_config = f"{GLOBAL_PATH_REPO}/config/config_vmas_rllib.yaml"
+    framework = RLFramework(file_config)
+    framework.train_and_evaluate()
