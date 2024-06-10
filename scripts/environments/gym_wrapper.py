@@ -12,16 +12,18 @@ class GymWrapper(AbstractEnvironment):
 
     def _create_env(self):
         valid_env_config = {k: v for k, v in self.config.items() if
-                            k not in ['reward_wrapper', 'observation_wrapper', 'wrapper_kwargs']}
+                            k not in ['reward_wrapper', 'observation_wrapper', 'wrapper_kwargs', 'logging']}
         env = gym.make(self.env_name, **valid_env_config)
         env.action_space.seed(self.seed)
         env.observation_space.seed(self.seed)
 
         reward_wrapper_config = self.config.get('reward_wrapper')
         observation_wrapper_config = self.config.get('observation_wrapper')
+        logging = self.config.get('logging', False)
         wrapper_kwargs = self.config.get('wrapper_kwargs', {})
 
-        env = env_wrappers_manager(env, reward_wrapper_config, observation_wrapper_config, **wrapper_kwargs)
+        env = env_wrappers_manager(env, reward_wrapper_config, observation_wrapper_config, logging=logging,
+                                   **wrapper_kwargs)
         return env
 
     def return_env(self):
@@ -44,3 +46,4 @@ class GymWrapper(AbstractEnvironment):
 
     def get_action_space(self):
         return self.env.action_space
+

@@ -38,7 +38,14 @@ def main(config_path):
     algo.train()
     results = algo.evaluate()
     algo.save(f'{env_name}_{algo_name}')
+
+    # Retrieve logs from the LoggingWrapper
+    if hasattr(env, 'get_logs'):
+        logs = env.get_logs()
+    else:
+        logs = env.unwrapped.get_logs()
     print(f"Evaluation Results: {results}")
+    # print(f"Logs: {logs}")
 
 
 if __name__ == "__main__":

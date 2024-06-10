@@ -44,7 +44,7 @@ class SB3Algorithm(AbstractAlgorithm):
         set_random_seed(self.seed)
 
         callback, stop_training_callback, performance_callback = self.setup_callbacks()
-        self.model.learn(total_timesteps=int(1e50), callback=callback, progress_bar=True)
+        self.model.learn(total_timesteps=int(1e50), callback=callback)
 
         total_time = stop_training_callback.get_total_time()
         episode_rewards = performance_callback.get_episode_rewards()

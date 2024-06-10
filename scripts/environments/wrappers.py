@@ -2,6 +2,7 @@ from typing import Tuple
 import gymnasium as gym
 import importlib
 import numpy as np
+import random
 
 LABEL_BOUNDARY = 'border'
 
@@ -10,7 +11,7 @@ LABEL_NEW_OBS = 'new'
 LABEL_CONCAT_OBS = 'concat'
 
 
-def env_wrappers_manager(env, reward_wrapper=None, observation_wrapper=None):
+def env_wrappers_manager(env, reward_wrapper=None, observation_wrapper=None, logging=False, **kwargs):
     if reward_wrapper:
         wrapper_class_path = reward_wrapper['wrapper']
         module_name, class_name = wrapper_class_path.rsplit(".", 1)
@@ -25,27 +26,68 @@ def env_wrappers_manager(env, reward_wrapper=None, observation_wrapper=None):
         wrapper_kwargs = observation_wrapper.get('kwargs', {})
         env = observation_wrapper_class(env, **wrapper_kwargs)
 
+    env = LoggingWrapper(env, logging)
+
     return env
+
+
+class LoggingWrapper(gym.Wrapper):
+    def __init__(self, env, if_logging):
+        super().__init__(env)
+        self.if_logging = if_logging
+        if self.if_logging:
+            self.logs = {
+                'observations': {},
+                'rewards': [],
+                'actions': []
+            }
+
+    """
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        
+        processor = ObservationProcessor(obs, action)
+        obs = processor.process_observations()
+        
+        if self.if_logging:
+            self._log_observation(obs)
+        return obs, info"""
+
+    def step(self, action):
+        obs, reward, done, trunc, info = self.env.step(action)
+
+        processor = ObservationProcessor(obs, action)
+        obs = processor.process_observations()
+
+        if self.if_logging:
+            self._log_observation(obs)
+            self.logs['rewards'].append(reward)
+            self.logs['actions'].append(action)
+        return obs, reward, done, trunc, info
+
+    def _log_observation(self, obs):
+        for key, value in obs.items():
+            if key not in self.logs['observations']:
+                self.logs['observations'][key] = []
+            self.logs['observations'][key].append(value)
+
+    def get_logs(self):
+        return self.logs
 
 
 class FrozenLake_ObservationSpaceWrapper(gym.ObservationWrapper):
     def __init__(self, environment, observation_matrix_shape: Tuple[int, int], kind_of_obs: str):
         super().__init__(environment)
-
-        # This is the space for the typical observations from the environment
-        self.gym_obs = environment.observation_space
+        self.observation_matrix_shape = observation_matrix_shape
+        self.kind_of_obs = kind_of_obs
         self.world = np.array(environment.desc.tolist(), dtype='<U10')
-
         self.entities_world, self.n_entities_world = _count_unique_strings(self.world)
 
-        # add "bound" in entities
         self.entities_world.add(LABEL_BOUNDARY)
         self.n_entities_world += 1
 
         self.world_rows, self.world_cols = self.world.shape
-
-        self.observation_matrix_shape = observation_matrix_shape
-        self.kind_of_obs = kind_of_obs
+        self.gym_obs = environment.observation_space
 
         # Define a new observation space
         if self.kind_of_obs == LABEL_ORIGINAL_OBS:
@@ -81,15 +123,12 @@ class FrozenLake_ObservationSpaceWrapper(gym.ObservationWrapper):
 
     def _define_new_observations(self, obs: int) -> dict:
         def _get_full_matrix(obs2):
-            # Create a copy of the base grid for manipulation
             matrix = np.copy(self.world)
             return matrix
 
         def get_obs_matrix(obs1):
             start_matrix = _get_full_matrix(obs1)
-
             row, col = divmod(obs1, self.world_rows)
-            # Create a NxN submatrix centered on the agent
             submatrix = np.full(self.observation_matrix_shape, LABEL_BOUNDARY, dtype='<U10')
             for i in range(-1, 2):
                 for j in range(-1, 2):
@@ -97,14 +136,11 @@ class FrozenLake_ObservationSpaceWrapper(gym.ObservationWrapper):
                     sub_col = col + j
                     if 0 <= sub_row < 4 and 0 <= sub_col < 4:
                         submatrix[i + 1, j + 1] = start_matrix[sub_row, sub_col]
-
             return submatrix.tolist()
 
         obs_matrix = get_obs_matrix(obs)
         features_dict = _new_feature_dict(obs_matrix, self.entities_world)
-
         ordered_features_dict = {key: features_dict[key] for key in self.entities_world if key in features_dict}
-
         return ordered_features_dict
 
 
@@ -225,6 +261,56 @@ class Taxi_ObservationSpaceWrapper(gym.ObservationWrapper):
         ordered_features_dict = {key: features_dict[key] for key in self.entities_world if key in features_dict}
 
         return ordered_features_dict
+
+
+class ObservationProcessor:
+    def __init__(self, observations, action):
+        self.observations = observations
+        self.action = action
+        self.data_dict = {}
+
+    @staticmethod
+    def find_nonzero_positions(matrix: np.ndarray):
+        if not isinstance(matrix, np.ndarray):
+            raise ValueError("Input must be a numpy array")
+
+        indices = np.argwhere(matrix > 0)
+        if indices.shape[1] == 3:
+            linear_indices = [row * matrix.shape[2] + col for _, row, col in indices]
+        else:
+            linear_indices = [row * matrix.shape[1] + col for row, col in indices]
+
+        return linear_indices
+
+    def select_value_from_positions(self, non_zero_positions) -> int:
+        if not non_zero_positions:
+            return 50
+        else:
+            if self.action is not None:
+                if isinstance(self.action, (int, float, np.int32, np.int64)):
+                    action_value = int(self.action)
+                else:
+                    action_value = int(self.action[0])
+            else:
+                action_value = None
+
+            if action_value is not None:
+                if action_value in non_zero_positions:
+                    return action_value
+                else:
+                    return random.choice(non_zero_positions)
+            else:
+                return random.choice(non_zero_positions)
+
+    def process_observations(self) -> dict:
+        for key, array in self.observations.items():
+            if isinstance(array, np.ndarray):
+                non_zero_positions = self.find_nonzero_positions(array)
+                chosen_value = self.select_value_from_positions(non_zero_positions)
+                self.data_dict[key] = chosen_value
+            else:
+                self.data_dict[key] = array[0]
+        return self.data_dict
 
 
 def _count_unique_strings(array):

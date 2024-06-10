@@ -2,7 +2,7 @@ environment:
   library: gym
   name: FrozenLake-v1
   config:
-    # is_slippery: false
+    is_slippery: false
     reward_wrapper:
       wrapper: "scripts.environments.wrappers.FrozenLake_RewardWrapper"
       kwargs: {}
@@ -11,10 +11,11 @@ environment:
       kwargs:
         observation_matrix_shape: [3, 3]
         kind_of_obs: 'new'
+    logging: true
 
 algorithm:
   library: sb3  # or rllib
-  name: DQN     # could be PPO, DQN, A3C for rllib; PPO, DQN, A2C for sb3
+  name: DQN     # PPO, DQN, A3C for rllib; PPO, DQN, A2C for sb3
   hyperparameters: {}
   training_episodes: 1000
   evaluation_episodes: 100
