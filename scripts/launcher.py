@@ -1,7 +1,7 @@
 from path_repo import GLOBAL_PATH_REPO
 from scripts.combo.env_gym_algo_sb3 import EnvGymAlgoSB3
 from scripts.combo.env_gym_algo_rllib import EnvGymAlgoRLlib
-from scripts.combo.env_vmas_algo_rllib import EnvVmasAlgoRLlib
+# from scripts.combo.env_vmas_algo_rllib import EnvVmasAlgoRLlib
 from scripts.utils import ConfiguratorParser
 
 
@@ -22,7 +22,8 @@ class RLFramework:
         elif env_library == 'gym' and algo_library == 'rllib':
             return EnvGymAlgoRLlib(env_config, algo_config)
         elif env_library == 'vmas' and algo_library == 'rllib':
-            return EnvVmasAlgoRLlib(env_config, algo_config)
+            pass
+            #return EnvVmasAlgoRLlib(env_config, algo_config)
 
     def train_and_evaluate(self):
         print("Training started...")
@@ -35,6 +36,6 @@ class RLFramework:
 
 
 if __name__ == "__main__":
-    file_config = f"{GLOBAL_PATH_REPO}/config/config_vmas_rllib.yaml"
+    file_config = f"{GLOBAL_PATH_REPO}/config/config_gym_rllib.yaml"
     framework = RLFramework(file_config)
     framework.train_and_evaluate()
