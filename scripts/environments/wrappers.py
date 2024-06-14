@@ -4,6 +4,8 @@ import importlib
 import numpy as np
 import random
 
+from gymnasium.envs.toy_text.utils import categorical_sample
+
 LABEL_BOUNDARY = 'border'
 
 LABEL_ORIGINAL_OBS = 'default'
@@ -11,59 +13,14 @@ LABEL_NEW_OBS = 'new'
 LABEL_CONCAT_OBS = 'concat'
 
 
-def env_wrappers_manager(env, reward_wrapper=None, observation_wrapper=None, logging=False, **kwargs):
-    if reward_wrapper:
-        wrapper_class_path = reward_wrapper['wrapper']
-        module_name, class_name = wrapper_class_path.rsplit(".", 1)
-        reward_wrapper_class = getattr(importlib.import_module(module_name), class_name)
-        wrapper_kwargs = reward_wrapper.get('kwargs', {})
-        env = reward_wrapper_class(env, **wrapper_kwargs)
-
-    if observation_wrapper:
-        wrapper_class_path = observation_wrapper['wrapper']
-        module_name, class_name = wrapper_class_path.rsplit(".", 1)
-        observation_wrapper_class = getattr(importlib.import_module(module_name), class_name)
-        wrapper_kwargs = observation_wrapper.get('kwargs', {})
-        env = observation_wrapper_class(env, **wrapper_kwargs)
-
-    env = LoggingWrapper(env, logging)
-
-    return env
-
-
 class LoggingWrapper(gym.Wrapper):
-    def __init__(self, env, if_logging):
+    def __init__(self, env):
         super().__init__(env)
-        self.if_logging = if_logging
-        if self.if_logging:
-            self.logs = {
-                'observations': {},
-                'rewards': [],
-                'actions': []
-            }
-
-    """
-    def reset(self, **kwargs):
-        obs, info = self.env.reset(**kwargs)
-        
-        processor = ObservationProcessor(obs, action)
-        obs = processor.process_observations()
-        
-        if self.if_logging:
-            self._log_observation(obs)
-        return obs, info"""
-
-    def step(self, action):
-        obs, reward, done, trunc, info = self.env.step(action)
-
-        processor = ObservationProcessor(obs, action)
-        obs = processor.process_observations()
-
-        if self.if_logging:
-            self._log_observation(obs)
-            self.logs['rewards'].append(reward)
-            self.logs['actions'].append(action)
-        return obs, reward, done, trunc, info
+        self.logs = {
+            'observations': {},
+            'reward': [],
+            'action': []
+        }
 
     def _log_observation(self, obs):
         for key, value in obs.items():
@@ -73,6 +30,13 @@ class LoggingWrapper(gym.Wrapper):
 
     def get_logs(self):
         return self.logs
+
+    def reset_logs(self):
+        self.logs = {
+            'observations': {},
+            'reward': [],
+            'action': []
+        }
 
 
 class FrozenLake_ObservationSpaceWrapper(gym.ObservationWrapper):
@@ -141,7 +105,11 @@ class FrozenLake_ObservationSpaceWrapper(gym.ObservationWrapper):
         obs_matrix = get_obs_matrix(obs)
         features_dict = _new_feature_dict(obs_matrix, self.entities_world)
         ordered_features_dict = {key: features_dict[key] for key in self.entities_world if key in features_dict}
-        return ordered_features_dict
+
+        processor = ObservationProcessor(ordered_features_dict, self.lastaction)
+        new_observation = processor.process_observations()
+
+        return new_observation
 
 
 class FrozenLake_RewardWrapper(gym.RewardWrapper):

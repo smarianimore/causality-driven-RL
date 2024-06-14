@@ -1,5 +1,9 @@
 import importlib
+
+import networkx as nx
 import yaml
+from causalnex.structure import StructureModel
+from matplotlib import pyplot as plt
 
 " ******************************************************************************************************************** "
 
@@ -16,7 +20,7 @@ class ConfiguratorParser:
         return self.config['algorithm']
 
     def get_simulation_config(self):
-        return self.config['simulations']
+        return self.config['simulation']
 
 
 " ******************************************************************************************************************** "
@@ -25,3 +29,6 @@ class ConfiguratorParser:
 def dynamic_import(module_name, class_name):
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
+
+
+" ******************************************************************************************************************** "

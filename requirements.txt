@@ -4,3 +4,6 @@ stable-baselines3[extra]
 PyYAML
 chardet
 numpy
+causalnex
+vmas
+tqdm
