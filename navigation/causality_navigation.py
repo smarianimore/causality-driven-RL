@@ -10,14 +10,16 @@ from vmas.simulator.utils import save_video
 import multiprocessing
 from navigation.causality_algos import CausalDiscovery, CausalInferenceForRL
 from path_repo import GLOBAL_PATH_REPO
+from try_ppo import PPO
 
-N_ENVIRONMENTS = 1
-N_AGENTS = 10
-N_TRAINING_STEPS = 5000
+N_ENVIRONMENTS = 5
+N_AGENTS = 2
+N_TRAINING_STEPS = 10000
 
 
 class VMASEnvironment:
     def __init__(self,
+                 algorithm = None,
                  render: bool = False,
                  save_render: bool = False,
                  num_envs: int = 32,
@@ -26,9 +28,14 @@ class VMASEnvironment:
                  device: str = "cuda",
                  scenario_name: str = "navigation",
                  n_agents: int = 4,
+                 x_semidim: float = None,
+                 y_semidim: float = None,
+                 shared_rew: bool = None,
                  continuous_actions: bool = True,
                  visualize_render: bool = True,
-                 wrapper: Wrapper = None):
+                 wrapper: Wrapper = None,
+                 ):
+        self.algorithm = algorithm
         self.render = render
         self.save_render = save_render
         self.num_envs = num_envs
@@ -37,6 +44,9 @@ class VMASEnvironment:
         self.device = device
         self.scenario_name = scenario_name
         self.n_agents = n_agents
+        self.x_semidim = x_semidim
+        self.y_semidim = y_semidim
+        self.shared_rew = shared_rew
         self.continuous_actions = continuous_actions
         self.visualize_render = visualize_render
         self.wrapper = wrapper
@@ -64,8 +74,16 @@ class VMASEnvironment:
             dict_spaces=dict_spaces,
             wrapper=self.wrapper,
             seed=None,
+            shared_rew=self.shared_rew,
             n_agents=self.n_agents,
+            x_semidim=self.x_semidim,
+            y_semidim=self.y_semidim
         )
+        print(self.env.observation_space, self.env.action_space)
+
+        print(1/(0.05 * self.x_semidim), 1/(0.05 * self.y_semidim))
+
+        return self.env.observation_space.shape, self.env.action_space.shape
 
     def initialize_dataframes(self, observations):
         # Initialize the DataFrames based on the first observation
@@ -103,6 +121,7 @@ class VMASEnvironment:
 
     def run(self):
         assert not (self.save_render and not self.render), "To save the video you have to render it"
+
         self.initialize_env()
 
         init_time = time.time()
@@ -122,6 +141,7 @@ class VMASEnvironment:
                     actions.append(action)
 
             obs, rews, dones, info = self.env.step(actions)
+            # SHAPES: obs [n_envs, 18], rews [n_envs], dones [n_envs]
 
             if not self.columns_initialized:
                 self.initialize_dataframes(obs)
@@ -165,10 +185,11 @@ class VMASEnvironment:
         return agent_dataframes
 
     def causality_extraction(self):
-        agent_dataframes = {'agent_0': pd.read_pickle('C:\\Users\giova\Documents\Research\cdrl_framework\\navigation\causal_knowledge\\agent0\df_original.pkl')}
-                    #'agent_1': pd.read_pickle('C:\\Users\giova\Documents\Research\cdrl_framework\\navigation\causal_knowledge\\agent1\df_original.pkl')}
+        #agent_dataframes = {'agent_0_vecchio': pd.read_pickle(
+            #'C:\\Users\giova\Documents\Research\cdrl_framework\\navigation\causal_knowledge\\agent0\df_original.pkl')}
+        # 'agent_1': pd.read_pickle('C:\\Users\giova\Documents\Research\cdrl_framework\\navigation\causal_knowledge\\agent1\df_original.pkl')}
 
-        # agent_dataframes = self._concat_dfs()
+        agent_dataframes = self._concat_dfs()
         n = N_AGENTS if N_AGENTS < multiprocessing.cpu_count() else multiprocessing.cpu_count()
         with multiprocessing.Pool(processes=n) as pool:
             causal_graphs, dfs = pool.starmap(self.cd_chunk,
@@ -185,14 +206,14 @@ class VMASEnvironment:
     @staticmethod
     def cd_chunk(df, env_name):
         # try:
-            filtered_df = df.loc[:, df.std() != 0]
-            dir_name = f'{GLOBAL_PATH_REPO}/navigation/causal_knowledge'
+        filtered_df = df.loc[:, df.std() != 0]
+        dir_name = f'{GLOBAL_PATH_REPO}/navigation/causal_knowledge'
 
-            cd = CausalDiscovery(filtered_df, dir_name, env_name)
-            cd.training()
+        cd = CausalDiscovery(filtered_df, dir_name, env_name)
+        cd.training()
 
-            return cd.return_causal_graph(), cd.return_df()
-            """except Exception as e:
+        return cd.return_causal_graph(), cd.return_df()
+        """except Exception as e:
             print(f'CD failed in {env_name}')
             print(e)"""
 
@@ -206,7 +227,6 @@ class VMASEnvironment:
 
 
 if __name__ == "__main__":
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print('Device: ', device)
     vmas_env = VMASEnvironment(
@@ -219,9 +239,12 @@ if __name__ == "__main__":
         continuous_actions=False,
         device=device,
         n_agents=N_AGENTS,
+        x_semidim=0.5,
+        y_semidim=0.5,
+        shared_rew=False,
         visualize_render=False,
         # wrapper=Wrapper.GYM
     )
 
-    # vmas_env.run()
+    vmas_env.run()
     vmas_env.causality_extraction()

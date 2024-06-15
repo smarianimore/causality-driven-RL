@@ -1,10 +1,5 @@
 - file setup con stefano
 
-- vmas è un dito in culo, forse conviene usare pybullet(?)
-- benchmarl fa già tante cose, con vmas otteniamo la conoscenza causale (se riusciamo) e poi si va su benchmarl per l'integrazione
-- rllib è un dito in culo, forse conviene usare py3drl
-
-
 - allows env setup
 
 - allows algo setup?
