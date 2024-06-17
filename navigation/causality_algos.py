@@ -1,11 +1,12 @@
 import itertools
 import os
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 import re
 import networkx as nx
 import pandas as pd
 import random
 import numpy as np
+import pylab as pl
 from causalnex.inference import InferenceEngine
 from causalnex.network import BayesianNetwork
 from causalnex.structure import StructureModel
@@ -21,15 +22,17 @@ FONT_SIZE_NODE_GRAPH = 7
 ARROWS_SIZE_NODE_GRAPH = 30
 NODE_SIZE_GRAPH = 1000
 
+COL_REWARD_ACTION_VALUES = 'reward_action_values'
+
 
 class CausalDiscovery:
     def __init__(self, df: pd.DataFrame = None, dir_name: str = None, env_name: str = None,
-                 bins_discretization: int = 20):
+                 bins_discretization: int = 10):
 
+        self.features_names = None
         self.causal_graph = None
         self.notears_graph = None
         self.df = None
-        self.df_not_discr = None
         self.env_name = env_name
         self.dir_save = f'{dir_name}/{self.env_name}'
         os.makedirs(self.dir_save, exist_ok=True)
@@ -39,27 +42,27 @@ class CausalDiscovery:
 
         self.add_data(df)
 
-    def add_data(self, df):
-        if self.df_not_discr is None:
-            self.df_not_discr = df
+    def add_data(self, df: pd.DataFrame):
+        if self.df is None:
+            self.df = df
         else:
-            self.df_not_discr = pd.concat([self.df_not_discr, df])
+            self.df = pd.concat([self.df, df])
 
-        self.df_not_discr.to_pickle(f'{self.dir_save}/df_original.pkl')
-        self.df = self.discretize_continuous_features(self.df_not_discr)
-        self.df.to_pickle(f'{self.dir_save}/df_discretized{self.bins}bins.pkl')
+        reward_col = [s for s in self.df.columns.to_list() if 'reward' in s][0]
 
+        self.df.to_pickle(f'{self.dir_save}/df.pkl')
+        # plot_reward(self.df[reward_col], reward_col)
         self.features_names = self.df.columns.to_list()
 
         for col in self.df.columns:
             self.df[str(col)] = self.df[str(col)].astype(str).str.replace(',', '').astype(float)
 
-    def discretize_continuous_features(self, df):
+    def discretize_continuous_features(self, df: pd.DataFrame):
         df_copy = df.copy()
 
         for column in df_copy.columns:
             if pd.api.types.is_numeric_dtype(df_copy[column]) and 'action' not in column:
-               df_copy[column] = pd.cut(df_copy[column], bins=self.bins, labels=False)
+                df_copy[column] = pd.cut(df_copy[column], bins=self.bins, labels=False)
             else:
                 df_copy[column] = df_copy[column]
 
@@ -92,10 +95,9 @@ class CausalDiscovery:
 
         else:
             self.causal_graph = None
-            print(f'Number of graphs: {nx.number_weakly_connected_components(self.notears_graph)},'
-                  f' DAG: {nx.is_directed_acyclic_graph(self.notears_graph)}')
+            print(f'Number of graphs: {nx.number_weakly_connected_components(self.notears_graph)},'f' DAG: {nx.is_directed_acyclic_graph(self.notears_graph)}')
 
-    def _causality_assessment(self, graph, df) -> Tuple[List[Tuple], List, List]:
+    def _causality_assessment(self, graph: StructureModel, df: pd.DataFrame) -> Tuple[List[Tuple], List, List]:
         """ Given an edge, do-calculus on each direction once each other (not simultaneously) """
         # print('bayesian network definition...')
         bn = BayesianNetwork(graph)
@@ -120,7 +122,7 @@ class CausalDiscovery:
 
         # Iterate over each node in the graph
         # pbar = tqdm(graph.nodes, desc=f'{self.env_name} nodes')
-        #for node in pbar:
+        # for node in pbar:
         for node in graph.nodes:
             connected_nodes = list(self.notears_graph.neighbors(node))
             change_detected = False
@@ -206,29 +208,16 @@ class CausalDiscovery:
             with open(f'{self.dir_save}/notears_structure.json', 'w') as json_file:
                 json.dump(structure_to_save, json_file)
 
-        plt.show()
+        # plt.show()
         plt.close(fig)
-
-
-def define_causal_graph(list_for_causal_graph: list):
-    # Create a StructureModel
-    sm = StructureModel()
-
-    # Add edges to the StructureModel
-    for relationship in list_for_causal_graph:
-        cause, effect = relationship
-        sm.add_edge(cause, effect)
-
-    return sm
-
-
-COL_REWARD_ACTION_VALUES = 'reward_action_values'
 
 
 class CausalInferenceForRL:
     def __init__(self, df: pd.DataFrame, causal_graph: StructureModel, action_space_size: int,
                  causal_table: pd.DataFrame = None):
 
+        self.action_column = None
+        self.reward_column = None
         random.seed(42)
         np.random.seed(42)
         self.action_space_size = action_space_size
@@ -241,7 +230,7 @@ class CausalInferenceForRL:
 
         self.add_data(df, causal_graph)
 
-    def add_data(self, new_df, new_graph):
+    def add_data(self, new_df: pd.DataFrame, new_graph: StructureModel):
         if self.df is None:
             self.df = new_df
         else:
@@ -269,7 +258,7 @@ class CausalInferenceForRL:
             self.bn = None
             self.ie = None
 
-    def get_rewards_actions_values(self, observation: dict, online: bool) -> dict:
+    def get_rewards_actions_values(self, observation: Dict, online: bool) -> dict:
         if self.bn is not None and self.ie is not None:
             print('online bn')
             if online:
@@ -317,7 +306,7 @@ class CausalInferenceForRL:
         return self.causal_table
 
 
-def process_chunk(chunk, df, causal_graph):
+def process_chunk(chunk: Tuple, df: pd.DataFrame, causal_graph: StructureModel):
     ie = InferenceEngine(BayesianNetwork(causal_graph).fit_node_states_and_cpds(df))
     rows = []
     pbar = tqdm(chunk, desc=f'Preparing causal table', leave=True)
@@ -330,7 +319,8 @@ def process_chunk(chunk, df, causal_graph):
     return rows
 
 
-def inference_function(observation, ie, possible_reward_values, reward_col, action_col):
+def inference_function(observation: Dict, ie: InferenceEngine, possible_reward_values: List, reward_col: str,
+                       action_col: str):
     reward_feature = reward_col
     action_feature = action_col
     reward_action_values = {}
@@ -354,3 +344,11 @@ def inference_function(observation, ie, possible_reward_values, reward_col, acti
             pass
 
     return reward_action_values
+
+
+def plot_reward(values, name):
+    fig = plt.figure(dpi=500)
+    pl.title(f'{name} - {len(values)}')
+    x = np.arange(0, len(values), 1)
+    plt.plot(x, values)
+    plt.show()

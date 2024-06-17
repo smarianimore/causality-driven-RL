@@ -22,11 +22,11 @@ class VMASEnvironment:
                  y_semidim: float = None,
                  shared_rew: bool = None,
                  continuous_actions: bool = True,
-                 visualize_render: bool = True,
+                 visualize_render: bool = False,
                  wrapper: Wrapper = None,
                  ):
         self.algorithm = algorithm
-        self.render = render
+        self.if_render = render
         self.save_render = save_render
         self.num_envs = num_envs
         self.n_training_episodes = n_training_episodes
@@ -58,18 +58,11 @@ class VMASEnvironment:
             shared_rew=self.shared_rew,
             n_agents=self.n_agents,
             x_semidim=self.x_semidim,
-            y_semidim=self.y_semidim
+            y_semidim=self.y_semidim,
+            max_steps=100
         )
 
         return self.env
-
-    def render(self):
-        if self.render:
-            frame = self.env.render(
-                mode="rgb_array",
-                agent_index_focus=None,
-                visualize_when_rgb=self.visualize_render,
-            )
 
 
 if __name__ == "__main__":
