@@ -32,7 +32,7 @@ class RandomAgentVMAS:
 
 
 class CausalAgentVMAS:
-    def __init__(self, env: Environment, device, agent_id: int = 0, timesteps_for_causality_update: int = 5000, seed: int = 42):
+    def __init__(self, env: Environment, device, agent_id: int = 0, timesteps_for_causality_update: int = 10000, seed: int = 42):
 
         self.env = env
         self.action_space_size = self.env.action_space['agent_0'].n
@@ -120,13 +120,16 @@ class CausalAgentVMAS:
         return action
 
     def _epsilon_greedy_choice(self, reward_action_values: Dict):
-        if not reward_action_values:  # Check if dictionary is empty
+        if not reward_action_values:  # Check if the dictionary is empty
+            print('random causal')
             return self._random_action_choice()
 
         if random.random() < self.epsilon:
+            print('causal exploration')
             random_action = random.choice(list(reward_action_values.keys()))
             return torch.tensor([random_action], device=self.device)
         else:
+            print('causal exploitation')
             chosen_action = max(reward_action_values, key=reward_action_values.get)
             return torch.tensor([chosen_action], device=self.device)
 

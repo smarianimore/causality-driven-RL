@@ -72,8 +72,8 @@ class CausalDiscovery:
         # print(f'\n{self.env_name} - structuring model through NOTEARS... {len(self.df)} timesteps')
         self.notears_graph = from_pandas(self.df, max_iter=2000, use_gpu=True)
         self.notears_graph.remove_edges_below_threshold(0.2)
-        # largest_component = max(nx.weakly_connected_components(self.notears_graph), key=len)
-        # self.notears_graph = self.notears_graph.subgraph(largest_component).copy()
+        largest_component = max(nx.weakly_connected_components(self.notears_graph), key=len)
+        self.notears_graph = self.notears_graph.subgraph(largest_component).copy()
         self._plot_and_save_graph(self.notears_graph, False)
 
         if nx.number_weakly_connected_components(self.notears_graph) == 1 and nx.is_directed_acyclic_graph(
@@ -121,9 +121,9 @@ class CausalDiscovery:
         before = ie.query()
 
         # Iterate over each node in the graph
-        # pbar = tqdm(graph.nodes, desc=f'{self.env_name} nodes')
-        # for node in pbar:
-        for node in graph.nodes:
+        pbar = tqdm(graph.nodes, desc=f'{self.env_name} nodes')
+        for node in pbar:
+        # for node in graph.nodes:
             connected_nodes = list(self.notears_graph.neighbors(node))
             change_detected = False
 
