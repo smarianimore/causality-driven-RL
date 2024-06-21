@@ -222,19 +222,20 @@ class VMASTrainer:
 
 
 if __name__ == "__main__":
-    n_episodes = 1
+    n_episodes = 10
     n_agents = 4
     max_steps_single_env = 10000
-    n_environments = 1
+    n_environments = 2
     max_steps_env = max_steps_single_env * n_environments
-    observability = 'mdp'  # 'pomdp'
-    algos = ['dqn', 'qlearning']  # 'only_causal', 'dqn', 'random'
+    observabilities = ['mdp', 'pomdp']
+    algos = ['dqn', 'qlearning', 'only_causal', 'random']  # 'only_causal', 'dqn', 'random'
 
-    for algo in algos:
-        print(f'*** {algo} ***')
-        trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
-                              n_environments=n_environments,
-                              algo_name=algo, max_steps_env=max_steps_env, observability=observability)
-        trainer.train()
+    for observability in observabilities:
+        for algo in algos:
+            print(f'*** {algo} ***')
+            trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
+                                  n_environments=n_environments,
+                                  algo_name=algo, max_steps_env=max_steps_env, observability=observability)
+            trainer.train()
 
 
