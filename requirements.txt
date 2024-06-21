@@ -5,3 +5,4 @@ numpy
 causalnex
 vmas
 tqdm
+pylab-sdk
