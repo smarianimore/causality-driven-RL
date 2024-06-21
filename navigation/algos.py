@@ -362,6 +362,7 @@ class DQNAgent:
             action = random.randrange(self.action_space_size)
         else:
             with torch.no_grad():
+                state = state.to(torch.float)
                 q_values = self.q_network(state)
                 action = torch.argmax(q_values).item()
 
