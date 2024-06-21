@@ -1,5 +1,6 @@
 import os
 import json
+from typing import List
 from vmas import make_env
 from path_repo import GLOBAL_PATH_REPO
 from torch import Tensor
@@ -178,7 +179,7 @@ class VMASTrainer:
             for i in range(self.n_agents):
                 self.algos[i].reset_RL_knowledge()
 
-    def trainer_step(self, actions: Tensor, observations: Tensor, episode: int):
+    def trainer_step(self, actions: List, observations: Tensor, episode: int):
         next_observations, rewards, done, info = self.env.step(actions)
 
         if self.observability == 'mdp':
@@ -221,16 +222,19 @@ class VMASTrainer:
 
 
 if __name__ == "__main__":
-    n_episodes = 100
+    n_episodes = 1
     n_agents = 4
     max_steps_single_env = 10000
-    n_environments = 10
+    n_environments = 1
     max_steps_env = max_steps_single_env * n_environments
     observability = 'mdp'  # 'pomdp'
-    algo = 'qlearning'  # 'only_causal', 'dqn', 'random'
+    algos = ['dqn', 'qlearning']  # 'only_causal', 'dqn', 'random'
 
-    print(f'*** {algo} ***')
-    trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
-                          n_environments=n_environments,
-                          algo_name=algo, max_steps_env=max_steps_env, observability=observability)
-    trainer.train()
+    for algo in algos:
+        print(f'*** {algo} ***')
+        trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
+                              n_environments=n_environments,
+                              algo_name=algo, max_steps_env=max_steps_env, observability=observability)
+        trainer.train()
+
+

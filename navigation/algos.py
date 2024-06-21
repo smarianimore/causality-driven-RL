@@ -317,9 +317,9 @@ Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'
 class QNetwork(nn.Module):
     def __init__(self, input_size, output_size):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_size, 64)  # Adjust input_size to match state dimension
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, output_size)
+        self.fc1 = nn.Linear(input_size, 128)  # Adjust input_size to match state dimension
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, output_size)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))  # Input x should be (batch_size, input_size)
@@ -384,8 +384,10 @@ class DQNAgent:
                                       dtype=torch.bool)
         non_final_next_states = torch.stack(
             [s.clone().to(self.device).detach() for s in batch.next_state if s is not None])
+        non_final_next_states = non_final_next_states.to(torch.float)
 
         state_batch = torch.stack([s.clone().to(self.device).detach() for s in batch.state])
+        state_batch = state_batch.to(torch.float)
 
         action_batch = torch.tensor(batch.action, dtype=torch.int64, device=self.device)
         reward_batch = torch.tensor(batch.reward, dtype=torch.float32, device=self.device)
