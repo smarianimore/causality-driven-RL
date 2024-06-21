@@ -39,10 +39,10 @@ env_name = 'CartPole-v1'  # Replace with your environment name or custom environ
 
 # Create the environment
 env = gym.make(env_name)
-print(type(env))
+
 # Use DummyVecEnv to vectorize the environment
 vec_env = DummyVecEnv([lambda: env])
-print(type(env))
+
 # Define the RL algorithm
 model = PPO('MlpPolicy', vec_env, verbose=0)
 
