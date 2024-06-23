@@ -11,10 +11,10 @@ from causalnex.inference import InferenceEngine
 from causalnex.network import BayesianNetwork
 from causalnex.structure import StructureModel
 from causalnex.structure.pytorch import from_pandas
-from matplotlib import pyplot as plt
 import json
 import multiprocessing
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 FONT_SIZE_NODE_GRAPH = 7
 ARROWS_SIZE_NODE_GRAPH = 30
@@ -372,7 +372,7 @@ def inference_function(observation: Dict, ie: InferenceEngine, possible_reward_v
 
 def plot_reward(values, name):
     fig = plt.figure(dpi=500)
-    pl.title(f'{name} - {len(values)}')
+    plt.title(f'{name} - {len(values)}')
     x = np.arange(0, len(values), 1)
     plt.plot(x, values)
     plt.show()
