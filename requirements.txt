@@ -7,7 +7,6 @@ vmas~=1.4.1
 tqdm~=4.66.4
 pandas~=1.5.3
 setuptools~=68.2.0
-torch~=2.2.0+cu118
 networkx~=3.2.1
 matplotlib~=3.9.0
 gym~=0.26.2
