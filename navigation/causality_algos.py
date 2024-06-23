@@ -6,7 +6,6 @@ import networkx as nx
 import pandas as pd
 import random
 import numpy as np
-import pylab as pl
 from causallearn.search.ConstraintBased.PC import pc
 from causalnex.inference import InferenceEngine
 from causalnex.network import BayesianNetwork
