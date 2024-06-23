@@ -238,7 +238,6 @@ if __name__ == "__main__":
     n_agents = 4
     max_steps_single_env = 10000
     n_environments = 10
-    max_steps_env = max_steps_single_env * n_environments
     observabilities = ['mdp', 'pomdp']
     algos = ['only_causal']
 
@@ -247,5 +246,5 @@ if __name__ == "__main__":
             print(f'*** {algo} ***')
             trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
                                   n_environments=n_environments,
-                                  algo_name=algo, max_steps_env=max_steps_env, observability=observability)
+                                  algo_name=algo, max_steps_env=max_steps_single_env, observability=observability)
             trainer.train()
