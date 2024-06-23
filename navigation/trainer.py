@@ -1,6 +1,7 @@
 import os
 import json
 from typing import List
+import pandas as pd
 from vmas import make_env
 from path_repo import GLOBAL_PATH_REPO
 from torch import Tensor
@@ -84,7 +85,7 @@ class VMASTrainer:
 
     def _config_algo(self, algo: str, agent_id: int):
         if algo == 'random':
-            algo = RandomAgentVMAS(self.env, self.device)
+            algo = RandomAgentVMAS(self.env, self.device, agent_id=agent_id, save_df=True)
         elif algo == 'only_causal':
             algo = CausalAgentVMAS(self.env, {}, self.device, agent_id, n_steps=self.max_steps_env)
         elif algo == 'qlearning':
@@ -106,6 +107,14 @@ class VMASTrainer:
             self.gym_train()
 
         self.save_metrics()
+
+        if self.algos[0].name == 'random':
+            df_final = pd.DataFrame()
+            for algo in self.algos:
+                df_new = algo.return_df()
+                df_final = pd.concat([df_final, df_new], axis=1).reset_index(drop=True)
+            df_final.to_pickle(f'{GLOBAL_PATH_REPO}/navigation/df_random_{self.observability}_{len(df_final)}.pkl')
+            # df_final.to_excel(f'{GLOBAL_PATH_REPO}/navigation/df_random_{self.observability}_{len(df_final)}.xlsx')
 
     def gym_train(self):
         # training process
@@ -176,6 +185,9 @@ class VMASTrainer:
                                                 actions[i][env_n], initial_time)
                 steps += 1
 
+                if steps % 1000 == 0:
+                    print(f'{steps}/{self.max_steps_env}')
+
             for i in range(self.n_agents):
                 self.algos[i].reset_RL_knowledge()
 
@@ -225,10 +237,10 @@ if __name__ == "__main__":
     n_episodes = 10
     n_agents = 4
     max_steps_single_env = 10000
-    n_environments = 2
+    n_environments = 10
     max_steps_env = max_steps_single_env * n_environments
     observabilities = ['mdp', 'pomdp']
-    algos = ['dqn', 'qlearning', 'only_causal', 'random']  # 'only_causal', 'dqn', 'random'
+    algos = ['dqn', 'qlearning', 'only_causal', 'random']
 
     for observability in observabilities:
         for algo in algos:
@@ -237,5 +249,3 @@ if __name__ == "__main__":
                                   n_environments=n_environments,
                                   algo_name=algo, max_steps_env=max_steps_env, observability=observability)
             trainer.train()
-
-

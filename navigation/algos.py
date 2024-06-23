@@ -12,14 +12,18 @@ from navigation.causality_algos import CausalInferenceForRL, CausalDiscovery
 from navigation.utils import detach_dict
 from path_repo import GLOBAL_PATH_REPO
 
-EXPLORATION_GAME_PERCENT = 0.9
+EXPLORATION_GAME_PERCENT = 0.7
 
 
 class RandomAgentVMAS:
-    def __init__(self, env, device, seed: int = 42):
+    def __init__(self, env, device, seed: int = 42, agent_id: int = 0, save_df: bool = False):
         self.env = env
         self.name = 'random'
         self.device = device
+        self.agent_id = agent_id
+        self.save_df = save_df
+        self.dict_for_causality = None
+        self.continuous_actions = False
 
         np.random.seed(seed)
         random.seed(42)
@@ -33,11 +37,54 @@ class RandomAgentVMAS:
         )
         return action
 
-    def update(self, obs: Dict = None, action: float = None, reward: float = None, next_obs: Dict = None):
-        pass
+    def update(self, state: Tensor, action: Tensor, reward: Tensor, next_state: Tensor):
+        if self.save_df:
+            if self.dict_for_causality is None:
+                self._initialize_dict(state)
+
+            action = action if self.continuous_actions else int(action)
+            reward = reward.item() if isinstance(reward, torch.Tensor) else reward
+            self._update_dict(state, reward, action, next_state)
 
     def reset_RL_knowledge(self):
         pass
+
+    def _initialize_dict(self, observation):
+        self.features = []
+        num_sensors = len(observation) - 6  # Subtracting 6 for PX, PY, VX, VY, DX, DY
+
+        """ self.obs_features = [f"agent_{self.agent_id}_{feature}" for feature in
+                             ['PX', 'PY', 'VX', 'VY', 'DX', 'DY'] + [f'sensor{N}' for N in range(num_sensors)]]
+        self.features += self.obs_features"""
+        self.obs_features = None
+        self.features.append(f"agent_{self.agent_id}_reward")
+        self.features.append(f"agent_{self.agent_id}_action")
+        self.next_obs_features = [f"agent_{self.agent_id}_next_{feature}" for feature in
+                                  ['PX', 'PY', 'VX', 'VY', 'DX', 'DY'] + [f'sensor{N}' for N in range(num_sensors)]]
+        self.features += self.next_obs_features
+        self.dict_for_causality = {column: [] for column in self.features}
+
+    def _update_dict(self, observation, reward, action, next_observation):
+        agent_obs = observation.cpu().numpy()
+        agent_reward = reward
+        agent_action = action
+        agent_next_obs = next_observation.cpu().numpy()
+
+        if self.obs_features is not None:
+            for i, feature in enumerate(self.obs_features):
+                self.dict_for_causality[feature].append(agent_obs[i])
+        self.dict_for_causality[f"agent_{self.agent_id}_reward"].append(agent_reward)
+        self.dict_for_causality[f"agent_{self.agent_id}_action"].append(agent_action)
+        if self.next_obs_features is not None:
+            for i, feature in enumerate(self.next_obs_features):
+                self.dict_for_causality[feature].append(agent_next_obs[i])
+
+        # print(len(self.dict_for_causality[next(iter(self.dict_for_causality))]))
+
+    def return_df(self):
+        dict_detached = detach_dict(self.dict_for_causality)
+        df_causality = pd.DataFrame(dict_detached)
+        return df_causality
 
 
 class CausalAgentVMAS:
