@@ -6,7 +6,7 @@ from vmas import make_env
 from path_repo import GLOBAL_PATH_REPO
 from torch import Tensor
 import time
-from navigation.algos import RandomAgentVMAS, CausalAgentVMAS, QLearningAgent, DQNAgent, DynamicQLearningAgent
+from navigation.algos import RandomAgentVMAS, CausalAgentVMAS, QLearningAgent, DQNAgent
 import torch
 from vmas.simulator.environment import Wrapper
 from tqdm.auto import tqdm
@@ -84,18 +84,19 @@ class VMASTrainer:
         return env
 
     def _config_algo(self, algo: str, agent_id: int):
-        if algo == 'random':
-            algo = RandomAgentVMAS(self.env, self.device, agent_id=agent_id, save_df=True)
-        elif algo == 'only_causal':
-            algo = CausalAgentVMAS(self.env, {}, self.device, agent_id, n_steps=self.max_steps_env)
+        if algo == 'completely_causal':
+            return CausalAgentVMAS(self.env, {}, self.device, agent_id, n_steps=self.max_steps_env)
         elif algo == 'qlearning':
-            algo = QLearningAgent(self.env, self.device, n_steps=self.max_steps_env)
-        elif algo == 'dynamic_qlearning':
-            algo = DynamicQLearningAgent(self.env, self.device, n_steps=self.max_steps_env)
+            algo_config = {'learning_rate': 0.0001, 'discount_factor': 0.98, 'epsilon_start': 1.0, 'min_epsilon': 0.05}
+            return QLearningAgent(self.env, self.device, self.max_steps_env, agent_id, algo_config)
         elif algo == 'dqn':
-            algo = DQNAgent(self.env, self.device)
-        # TODO: causality-driven algo
-        return algo
+            return DQNAgent(self.env, self.device)
+        elif algo == 'causal_qlearning':
+            algo_config = {'learning_rate': 0.0001, 'discount_factor': 0.98, 'epsilon_start': 1.0, 'min_epsilon': 0.05}
+            causality_config = None
+            return QLearningAgent(self.env, self.device, self.max_steps_env, agent_id, algo_config, causality_config)
+        else:
+            return RandomAgentVMAS(self.env, self.device, agent_id=agent_id, save_df=False)
 
     def config_algos(self, algo_name: str):
         return [self._config_algo(algo_name, i) for i in range(self.n_agents)]
@@ -236,16 +237,15 @@ class VMASTrainer:
 if __name__ == "__main__":
     n_episodes = 10
     n_agents = 4
-    max_steps_single_env = 10000
+    max_steps_env = 10000
     n_environments = 10
-    max_steps_env = max_steps_single_env * n_environments
     observabilities = ['mdp', 'pomdp']
-    algos = ['dqn', 'qlearning', 'only_causal', 'random']
+    algorithms = ['qlearning', 'dqn', 'completely_causal', 'random']
 
     for observability in observabilities:
-        for algo in algos:
-            print(f'*** {algo} ***')
+        for algorithm in algorithms:
+            print(f'*** {algorithm} ***')
             trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
                                   n_environments=n_environments,
-                                  algo_name=algo, max_steps_env=max_steps_env, observability=observability)
+                                  algo_name=algorithm, max_steps_env=max_steps_env, observability=observability)
             trainer.train()

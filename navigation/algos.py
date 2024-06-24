@@ -96,7 +96,7 @@ class CausalAgentVMAS:
         self.device = device
         self.agent_id = agent_id
         self.scenario = 'navigation' + f'_agent_{self.agent_id}'
-        self.steps_for_causality_update = int(n_steps / 3)  # causality_config.get('steps_for_update', 1000)
+        self.steps_for_causality_update = causality_config.get('steps_for_update', 1000)
 
         # TODO: setup offline ci and cd
         self.online_cd = causality_config.get('online_cd', True)
@@ -235,91 +235,60 @@ class CausalAgentVMAS:
 
 
 class QLearningAgent:
-    def __init__(self, env: Environment, device: str = 'cpu', learning_rate: float = 0.001,
-                 discount_factor: float = 0.98, epsilon: float = 1.0,
-                 min_epsilon=0.05, n_steps: int = 100000):
-        self.name = 'qlearning'
+    def __init__(self, env: Environment, device: str = 'cpu', n_steps: int = 100000, agent_id: int = 0,
+                 algo_config: Dict = None, causality_config: Dict = None, seed: int = 42, scenario: str = 'navigation'):
+
+        self.seed = seed
+        np.random.seed(self.seed)
+        random.seed(self.seed)
+
         self.device = device
-        self.action_space_size = env.action_space['agent_0'].n
-        min_collision_distance = 0.005
-        self.rows = int(env.world.x_semidim * (1 / min_collision_distance) * 2)
-        self.cols = int(env.world.y_semidim * (1 / min_collision_distance) * 2)
+        self.agent_id = agent_id
+        self.action_space_size = env.action_space[f'agent_{self.agent_id}'].n
+        self.n_steps = n_steps
 
         self.continuous_actions = False  # self.env.continuous_actions
 
-        self.start_epsilon = epsilon
+        self._setup_algo(algo_config)
 
-        self.learning_rate = learning_rate
-        self.discount_factor = discount_factor
-        self.epsilon = self.start_epsilon
-        self.min_epsilon = min_epsilon
-        self.n_steps = n_steps
-        self.epsilon_decay = 1 - (-np.log(self.min_epsilon) / (EXPLORATION_GAME_PERCENT * self.n_steps))
-
-        self.q_table = np.zeros((self.rows, self.cols, self.action_space_size))
-
-    def choose_action(self, state: Tensor):
-        stateX = int(state[0].cpu().item())
-        stateY = int(state[1].cpu().item())
-
-        # Epsilon-greedy action selection
-        if random.uniform(0, 1) < self.epsilon:
-            # Exploration: choose a random action
-            action = random.choice(range(self.action_space_size))
+        if causality_config is None:
+            self.name = 'qlearning'
+            self.if_causality = False
         else:
-            # Exploitation: choose the best action based on current Q-values
-            action = np.argmax(self.q_table[stateX, stateY])
+            self.name = 'causal_qlearning'
+            self.if_causality = True
+            self._setup_causality(causality_config)
 
-        action = torch.tensor([action], device=self.device)
-        return action
+        self.scenario = scenario
 
-    def update(self, obs: Tensor = None, action: float = None, reward: float = None, next_obs: Tensor = None):
+    def _setup_algo(self, algo_config):
 
-        reward = reward.item() if isinstance(reward, torch.Tensor) else reward
-        action = action if self.continuous_actions else int(action)
-
-        stateX = int(obs[0].cpu().item())
-        stateY = int(obs[1].cpu().item())
-        next_stateX = int(next_obs[0].cpu().item())
-        next_stateY = int(next_obs[1].cpu().item())
-        best_next_action = np.argmax(self.q_table[next_stateX, next_stateY])
-        td_target = reward + self.discount_factor * self.q_table[next_stateX, next_stateY, best_next_action]
-        td_error = td_target - self.q_table[stateX, stateY, action]
-        self.q_table[stateX, stateY, action] += self.learning_rate * td_error
-
-        self._decay_epsilon()
-
-    def _decay_epsilon(self):
-        # Decay epsilon
-        self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
-
-    def reset_RL_knowledge(self):
-        self.q_table = np.zeros((self.rows, self.cols, self.action_space_size))
+        self.start_epsilon = algo_config.get('epsilon_start', 1.0)
+        self.learning_rate = algo_config.get('learning_rate', 0.0001)
+        self.discount_factor = algo_config.get('discount_factor', 0.98)
         self.epsilon = self.start_epsilon
-
-
-class DynamicQLearningAgent:
-    def __init__(self, env: Environment, device: str = 'cpu', learning_rate: float = 0.001,
-                 discount_factor: float = 0.98, epsilon: float = 1.0,
-                 min_epsilon=0.05, n_steps: int = 100000):
-        self.name = 'dynamic_qlearning'
-        self.device = device
-        self.action_space_size = env.action_space['agent_0'].n
-
-        self.continuous_actions = False  # self.env.continuous_actions
-
-        self.start_epsilon = epsilon
-
-        self.learning_rate = learning_rate
-        self.discount_factor = discount_factor
-        self.epsilon = self.start_epsilon
-        self.min_epsilon = min_epsilon
-        self.n_steps = n_steps
+        self.min_epsilon = algo_config.get('min_epsilon', 0.05)
         self.epsilon_decay = 1 - (-np.log(self.min_epsilon) / (EXPLORATION_GAME_PERCENT * self.n_steps))
 
         self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
 
+    def _setup_causality(self, causality_config):
+        # TODO: setup offline ci and cd
+        self.steps_for_causality_update = causality_config.get('steps_for_update', 1000)
+        self.online_cd = causality_config.get('online_cd', True)
+        self.online_ci = causality_config.get('online_ci', True)
+        self.df = causality_config.get('online_cd', True)
+        self.causal_graph = causality_config.get('online_cd', True)
+
+        self.features = None
+        self.obs_features = None
+        self.next_obs_features = None
+        self.dict_for_causality = None
+        self.cd = None
+        self.ci = None
+
     def choose_action(self, state: Tensor):
+        # TODO: CAUSALITY-INTEGRATION
         state_tuple = self._state_to_tuple(state)
         if random.uniform(0, 1) < self.epsilon:
             # print('exploration')
@@ -333,6 +302,12 @@ class DynamicQLearningAgent:
         return action
 
     def update(self, obs: Tensor = None, action: float = None, reward: float = None, next_obs: Tensor = None):
+        if self.if_causality:
+            self._update_causal_knowledge(obs, action, reward, next_obs)
+
+        self._update_rl_algo(obs, action, reward, next_obs)
+
+    def _update_rl_algo(self, obs: Tensor = None, action: float = None, reward: float = None, next_obs: Tensor = None):
         action = int(action)
         state_tuple = self._state_to_tuple(obs)
         next_state_tuple = self._state_to_tuple(next_obs)
@@ -343,6 +318,41 @@ class DynamicQLearningAgent:
         self.q_table[state_tuple][action] += self.learning_rate * td_error
 
         self._decay_epsilon()
+
+    def _update_causal_knowledge(self, obs: Tensor = None, action: float = None, reward: float = None,
+                                 next_obs: Tensor = None):
+        if self.online_cd:
+            if self.dict_for_causality is not None:
+                if obs is not None and reward is not None and action is not None and next_obs is not None:
+                    action = action if self.continuous_actions else int(action)
+                    reward = reward.item() if isinstance(reward, torch.Tensor) else reward
+                    self._update_dict(obs, reward, action, next_obs)
+            else:
+                self._initialize_dict(obs)
+
+            if len(self.dict_for_causality[next(iter(self.dict_for_causality))]) > self.steps_for_causality_update:
+                # print('update')
+                dict_detached = detach_dict(self.dict_for_causality)
+                df_causality = pd.DataFrame(dict_detached)
+
+                if self.cd is None:
+                    self.cd = CausalDiscovery(df=df_causality,
+                                              dir_name=f'{GLOBAL_PATH_REPO}/navigation/causal_knowledge',
+                                              env_name=self.scenario)
+                else:
+                    self.cd.add_data(df_causality)
+
+                self.cd.training()
+
+                causal_graph = self.cd.return_causal_graph()
+                df_for_ci = self.cd.return_df()
+
+                if self.ci is None:
+                    self.ci = CausalInferenceForRL(df_for_ci, causal_graph)
+                else:
+                    self.ci.add_data(df_for_ci, causal_graph)
+
+                self._initialize_dict(obs)
 
     def _decay_epsilon(self):
         # Decay epsilon
@@ -355,6 +365,38 @@ class DynamicQLearningAgent:
     def reset_RL_knowledge(self):
         self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
         self.epsilon = self.start_epsilon
+
+    def _initialize_dict(self, observation):
+        self.features = []
+        num_sensors = len(observation) - 6  # Subtracting 6 for PX, PY, VX, VY, DX, DY
+
+        """ self.obs_features = [f"agent_{self.agent_id}_{feature}" for feature in
+                             ['PX', 'PY', 'VX', 'VY', 'DX', 'DY'] + [f'sensor{N}' for N in range(num_sensors)]]
+        self.features += self.obs_features"""
+        self.obs_features = None
+        self.features.append(f"agent_{self.agent_id}_reward")
+        self.features.append(f"agent_{self.agent_id}_action")
+        self.next_obs_features = [f"agent_{self.agent_id}_next_{feature}" for feature in
+                                  ['PX', 'PY', 'VX', 'VY', 'DX', 'DY'] + [f'sensor{N}' for N in range(num_sensors)]]
+        self.features += self.next_obs_features
+        self.dict_for_causality = {column: [] for column in self.features}
+
+    def _update_dict(self, observation, reward, action, next_observation):
+        agent_obs = observation.cpu().numpy()
+        agent_reward = reward
+        agent_action = action
+        agent_next_obs = next_observation.cpu().numpy()
+
+        if self.obs_features is not None:
+            for i, feature in enumerate(self.obs_features):
+                self.dict_for_causality[feature].append(agent_obs[i])
+        self.dict_for_causality[f"agent_{self.agent_id}_reward"].append(agent_reward)
+        self.dict_for_causality[f"agent_{self.agent_id}_action"].append(agent_action)
+        if self.next_obs_features is not None:
+            for i, feature in enumerate(self.next_obs_features):
+                self.dict_for_causality[feature].append(agent_next_obs[i])
+
+        # print(len(self.dict_for_causality[next(iter(self.dict_for_causality))]))
 
 
 # Define a namedtuple for Experience Replay
