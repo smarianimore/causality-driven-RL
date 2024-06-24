@@ -234,18 +234,18 @@ class VMASTrainer:
             json.dump(self.dict_metrics, file)
 
 
-if __name__ == "__main__":
-    n_episodes = 10
-    n_agents = 4
-    max_steps_env = 10000
-    n_environments = 10
-    observabilities = ['mdp', 'pomdp']
-    algorithms = ['qlearning', 'dqn', 'completely_causal', 'random']
+#if __name__ == "__main__":
+n_episodes = 10
+n_agents = 4
+max_steps_env = 10000
+n_environments = 10
+observabilities = ['mdp', 'pomdp']
+algorithms = ['qlearning', 'dqn', 'completely_causal', 'random']
 
-    for observability in observabilities:
-        for algorithm in algorithms:
-            print(f'*** {algorithm} ***')
-            trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
-                                  n_environments=n_environments,
-                                  algo_name=algorithm, max_steps_env=max_steps_env, observability=observability)
-            trainer.train()
+for observability in observabilities:
+    for algorithm in algorithms:
+        print(f'*** {algorithm} ***')
+        trainer = VMASTrainer(env_wrapper=None, n_training_episodes=n_episodes, rendering=False, n_agents=n_agents,
+                              n_environments=n_environments,
+                              algo_name=algorithm, max_steps_env=max_steps_env, observability=observability)
+        trainer.train()
